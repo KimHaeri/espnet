@@ -124,14 +124,16 @@ class DiarizeSpeech:
     @typechecked
     def __call__(
         self, speech: Union[torch.Tensor, np.ndarray], fs: int = 8000
-    ) -> Union[List[torch.Tensor], Tuple]:
+    ) -> Union[np.ndarray, Tuple[Optional[List[np.ndarray]], np.ndarray]]:
         """Inference
 
         Args:
             speech: Input speech data (Batch, Nsamples [, Channels])
             fs: sample rate
         Returns:
-            [speaker_info1, speaker_info2, ...]
+            Speaker activity probabilities (Batch, Frames, num_spk). When
+            enh_s2t_task is set, a tuple of the separated waves
+            ([(Batch, Nsamples)] per speaker) and those probabilities.
 
         """
 
@@ -319,7 +321,7 @@ class DiarizeSpeech:
         spk_prediction = spk_prediction.cpu().numpy()
         spk_prediction = 1 / (1 + np.exp(-spk_prediction))
 
-        return waves, spk_prediction if self.enh_s2t_task else spk_prediction
+        return (waves, spk_prediction) if self.enh_s2t_task else spk_prediction
 
     @torch.no_grad()
     def cal_permumation(self, ref_wavs, enh_wavs, criterion="si_snr"):

@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 
@@ -55,7 +56,10 @@ def test_DiarizeSpeech(
         num_spk=num_spk,
     )
     wav = torch.rand(batch_size, input_size)
-    diarize_speech(wav, fs=8000)
+    spk_prediction = diarize_speech(wav, fs=8000)
+    assert isinstance(spk_prediction, np.ndarray), type(spk_prediction)
+    assert spk_prediction.shape[0] == batch_size
+    assert spk_prediction.shape[2] == num_spk
 
 
 @pytest.fixture()
@@ -104,7 +108,9 @@ def test_DiarizeSpeech2(
         num_spk=num_spk,
     )
     wav = torch.rand(batch_size, input_size)
-    diarize_speech(wav, fs=8000)
+    spk_prediction = diarize_speech(wav, fs=8000)
+    assert isinstance(spk_prediction, np.ndarray), type(spk_prediction)
+    assert spk_prediction.shape[0] == batch_size
 
 
 @pytest.fixture()
@@ -170,4 +176,6 @@ def test_DiarSepSpeech(
         multiply_diar_result=multiply_diar_result,
     )
     wav = torch.rand(batch_size, input_size)
-    diarize_speech(wav, fs=8000)
+    waves, spk_prediction = diarize_speech(wav, fs=8000)
+    assert isinstance(spk_prediction, np.ndarray), type(spk_prediction)
+    assert spk_prediction.shape[0] == batch_size

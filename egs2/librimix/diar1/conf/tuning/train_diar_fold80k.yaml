@@ -1,0 +1,60 @@
+#    SA-EEND on Libri2Mix, same as conf/train_diar.yaml except warmup_steps.
+#    Run with --diar_speech_fold_length 80000: labels are sample-level, so the
+#    default fold length (800) folds every batch down to one utterance.
+#    With ~32 utterances per batch and accum_grad 2 an epoch is ~220 optimizer
+#    steps, so warmup_steps is scaled from 100000 to 3000 (peak LR near epoch 14).
+
+# network architecture
+# encoder related
+encoder: transformer
+encoder_conf:
+    input_layer: "linear"
+    num_blocks: 4
+    linear_units: 512
+    dropout_rate: 0.1
+    output_size: 256  # dimension of attention
+    attention_heads: 4
+    attention_dropout_rate: 0.1
+
+# decoder related
+decoder: linear
+
+# minibatch related
+batch_type: folded
+batch_size: 64
+
+# optimization related
+optim: adam
+accum_grad: 2
+grad_clip: 5
+max_epoch: 100
+optim_conf:
+    lr: 0.0002
+scheduler: warmuplr
+scheduler_conf:
+    warmup_steps: 3000
+
+# others:
+best_model_criterion:
+-  - valid
+   - acc
+   - max
+keep_nbest_models: 10
+
+patience: none
+# The initialization method for model parameters
+init: xavier_uniform
+
+specaug: specaug
+specaug_conf:
+    apply_time_warp: false
+    apply_freq_mask: true
+    freq_mask_width_range:
+    - 0
+    - 30
+    num_freq_mask: 2
+    apply_time_mask: true
+    time_mask_width_range:
+    - 0
+    - 40
+    num_time_mask: 2
