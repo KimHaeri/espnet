@@ -109,3 +109,39 @@ def test_use_sdpa_reaches_the_attention_and_matches_the_default():
         sdpa_out, _, _ = sdpa_encoder(x, lengths)
     assert default_out.shape == sdpa_out.shape
     assert torch.allclose(default_out, sdpa_out, atol=1e-5)
+
+
+def test_transformer_encoder_without_positional_encoding():
+    """With pos_enc_layer_type="none" the encoder sees no frame positions.
+
+    Self-attention without positional information is permutation-equivariant,
+    so shuffling the input frames must shuffle the output frames the same way.
+    The default encoder adds positions and must not pass this check.
+    """
+
+    def build(**kwargs):
+        torch.manual_seed(0)
+        return TransformerEncoder(
+            20,
+            output_size=16,
+            attention_heads=2,
+            linear_units=16,
+            num_blocks=2,
+            input_layer="linear",
+            use_flash_attn=False,
+            **kwargs,
+        ).eval()
+
+    x = torch.randn(1, 50, 20)
+    lengths = torch.tensor([50])
+    perm = torch.randperm(50, generator=torch.Generator().manual_seed(0))
+    with torch.no_grad():
+        nope = build(pos_enc_layer_type="none")
+        out, _, _ = nope(x, lengths)
+        out_perm, _, _ = nope(x[:, perm], lengths)
+        assert torch.allclose(out[:, perm], out_perm, atol=1e-5)
+
+        abs_pos = build()
+        out, _, _ = abs_pos(x, lengths)
+        out_perm, _, _ = abs_pos(x[:, perm], lengths)
+        assert not torch.allclose(out[:, perm], out_perm, atol=1e-5)

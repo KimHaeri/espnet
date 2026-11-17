@@ -54,6 +54,7 @@ class TransformerEncoder(AbsEncoder):
         positional_dropout_rate: dropout rate after adding positional encoding
         input_layer: input layer type
         pos_enc_class: PositionalEncoding or ScaledPositionalEncoding
+        pos_enc_layer_type: "abs_pos", "conv" or "none" (no positional encoding)
         normalize_before: whether to use layer_norm before the first block
         concat_after: whether to concat attention layer's input and output
             if True, additional linear will be applied.
@@ -98,6 +99,10 @@ class TransformerEncoder(AbsEncoder):
             pos_enc_class = ConvolutionalPositionalEmbedding
         elif pos_enc_layer_type == "abs_pos":
             pos_enc_class = PositionalEncoding
+        elif pos_enc_layer_type == "none":
+            # no positional information, as in the original EEND encoder;
+            # torch.nn.Identity ignores the (size, dropout_rate) arguments
+            pos_enc_class = torch.nn.Identity
 
         if input_layer == "linear":
             self.embed = torch.nn.Sequential(
