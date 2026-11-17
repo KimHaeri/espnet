@@ -248,6 +248,11 @@ if ! "${skip_data_prep}"; then
                 --audio-format "${audio_format}" --fs "${fs}"  \
                 "data/${dset}/wav.scp" "${data_feats}${_suf}/${dset}"
             echo "${feats_type}" > "${data_feats}${_suf}/${dset}/feats_type"
+            # utt2category (per recording) makes the samplers batch within a
+            # category, e.g. the speaker count of each chunk for EEND-EDA
+            if [ -f "data/${dset}/utt2category" ]; then
+                cp "data/${dset}/utt2category" "${data_feats}${_suf}/${dset}/utt2category"
+            fi
 
             # specifics for diarization
             steps/segmentation/convert_utt2spk_and_segments_to_rttm.py \
@@ -300,6 +305,11 @@ if ! "${skip_data_prep}"; then
 
             # fix_data_dir.sh leaves only utts which exist in all files
             utils/fix_data_dir.sh "${data_feats}/${dset}"
+            if [ -f "${data_feats}/org/${dset}/utt2category" ]; then
+                utils/filter_scp.pl "${data_feats}/${dset}/wav.scp" \
+                    <"${data_feats}/org/${dset}/utt2category" \
+                    >"${data_feats}/${dset}/utt2category"
+            fi
 
             # specifics for diarization
             steps/segmentation/convert_utt2spk_and_segments_to_rttm.py \
@@ -488,7 +498,7 @@ if ! "${skip_train}"; then
                 --use_preprocessor true \
                 --resume true \
                 --fold_length "${_fold_length}" \
-                --fold_length "${diar_speech_fold_length}" \
+                --fold_length "${_fold_length}" \
                 --output_dir "${diar_exp}" \
                 ${_opts} ${diar_args}
 
