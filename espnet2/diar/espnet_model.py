@@ -392,19 +392,28 @@ class ESPnetDiarizationModel(AbsESPnetModel):
         # Note (jiatong): Credit to https://github.com/hitachi-speech/EEND
         num_output = label.size(2)
         permute_list = [np.array(p) for p in permutations(range(num_output))]
-        loss_list = []
-        for p in permute_list:
-            label_perm = label[:, :, p]
-            loss_perm = self.pit_loss_single_permute(pred, label_perm, lengths)
-            loss_list.append(loss_perm)
-        loss = torch.cat(loss_list, dim=1)
+        perms = torch.as_tensor(
+            np.stack(permute_list), dtype=torch.long, device=label.device
+        )
+        # cost[b, n, m]: masked BCE of output n against label column m, summed
+        # over time. The loss of a permutation p is then the mean over n of
+        # cost[b, n, p[n]], so only (Batch, N, N) values go through autograd
+        # instead of one (Batch, T, N) BCE graph for each of the N! orders
+        # (40320 of them at 8 speakers).
+        mask = self.create_length_mask(lengths, label.size(1), 1)
+        bce = torch.nn.functional.binary_cross_entropy_with_logits(
+            pred.unsqueeze(3).expand(-1, -1, -1, num_output),
+            label.unsqueeze(2).expand(-1, -1, num_output, -1).to(pred.dtype),
+            reduction="none",
+        )
+        cost = torch.sum(bce * mask.unsqueeze(3), dim=1)
+        rows = torch.arange(num_output, device=label.device)
+        loss = cost[:, rows, perms].mean(dim=2)  # (Batch, N!)
         min_loss, min_idx = torch.min(loss, dim=1)
         loss = torch.sum(min_loss) / torch.sum(lengths.float())
         # Reorder each sample's label by its best permutation on the device,
         # without a per-sample copy to the CPU.
-        permutation = torch.as_tensor(
-            np.stack(permute_list), dtype=torch.long, device=label.device
-        )[min_idx]
+        permutation = perms[min_idx]
         label_permute = torch.gather(
             label, 2, permutation.unsqueeze(1).expand(-1, label.size(1), -1)
         ).float()
