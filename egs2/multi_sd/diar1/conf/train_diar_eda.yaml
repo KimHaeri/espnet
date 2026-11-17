@@ -1,0 +1,63 @@
+# EEND-EDA trained on many corpora at once (see local/CORPORA.md).
+# Training examples are 30 s chunks (local/make_chunks.py); utt2category holds
+# the speaker count of each chunk, so every batch has one speaker count, as
+# the attractor needs. Architecture as egs2/librimix/diar1/conf/train_diar_eda.yaml
+# but without positional encoding, as in the original EEND, so the encoder does
+# not see positions beyond the 30 s it was trained on when it diarizes full
+# recordings.
+# Run with --diar_speech_fold_length 3000 (300000 samples > one 30 s chunk at
+# 8 kHz), so the folded sampler keeps batch_size for every chunk.
+#    EEND-EDA: https://arxiv.org/abs/2005.09921, https://arxiv.org/abs/2106.10654
+
+encoder: transformer
+encoder_conf:
+    input_layer: "linear"
+    pos_enc_layer_type: none
+    num_blocks: 4
+    linear_units: 512
+    dropout_rate: 0.1
+    output_size: 256
+    attention_heads: 4
+    attention_dropout_rate: 0.1
+
+attractor: rnn
+attractor_conf:
+    unit: 256
+    layer: 1
+    dropout: 0.1
+    attractor_grad: True
+
+batch_type: folded
+batch_size: 32
+accum_grad: 1
+
+optim: adam
+grad_clip: 5
+max_epoch: 50
+optim_conf:
+    lr: 0.001
+scheduler: warmuplr
+scheduler_conf:
+    warmup_steps: 25000
+
+best_model_criterion:
+-  - valid
+   - acc
+   - max
+keep_nbest_models: 10
+patience: none
+init: xavier_uniform
+
+specaug: specaug
+specaug_conf:
+    apply_time_warp: false
+    apply_freq_mask: true
+    freq_mask_width_range:
+    - 0
+    - 30
+    num_freq_mask: 2
+    apply_time_mask: true
+    time_mask_width_range:
+    - 0
+    - 40
+    num_time_mask: 2
